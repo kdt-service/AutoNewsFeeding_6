@@ -7,10 +7,11 @@ import multiprocessing
 import concurrent.futures
 from bs4 import BeautifulSoup
 
+# 재귀 최대 깊이를 바꾸었다.
 sys.setrecursionlimit(10000)
 
-
 class DaumNewsCrawler:
+    # 카테고리 탐색을 위한 변수이다.
     CATEGORIES = {
         'economic': ['경제', {
             'finance': '금융',
@@ -54,6 +55,7 @@ class DaumNewsCrawler:
         }]
     }
 
+    # 클래스 생성과 동시에 메인 카테고리, 서브 카테고리, 날짜를 초기화 하는 함수이다.
     def __init__(self, main_category, sub_category, date):
         self.base_url = f"https://news.daum.net/breakingnews/{main_category}/{sub_category}?regDate={date}&page="
         self.last_page = 0
@@ -68,6 +70,7 @@ class DaumNewsCrawler:
                                     'title', 'content', 'writer', 'writed_at', 'news_agency'])
         self.params = {}
 
+    # 마지막 페이지 번호를 찾기 위한 함수이다.
     def find_last_page(self):
         last_url = self.base_url + "9999"
         response = requests.get(last_url)
@@ -75,6 +78,7 @@ class DaumNewsCrawler:
         tmp_page = soup.select_one('.inner_paging em').text
         self.last_page = int(tmp_page.replace('현재 페이지', '').strip())
 
+    # 뉴스 URL을 추출하기 위한 함수이다.
     def search(self):
         for date in range(1, self.last_page+1):
             self.page_list.append(self.base_url + str(date))
@@ -91,6 +95,7 @@ class DaumNewsCrawler:
                 link = news.find('a')
                 self.news_list.append(link.attrs['href'])
 
+    # 추출한 뉴스 게시글 URL에서 정보를 수집한다.
     def crawling(self):
         reqs = (grequests.get(link) for link in self.news_list)
         resp = grequests.map(reqs)
@@ -110,10 +115,12 @@ class DaumNewsCrawler:
             self.data_df.loc[self.index] = data
             self.index += 1
 
+    # 수집한 정보를 csv로 저장하는 함수이다.
     def save(self):
         self.data_df.to_csv(
             f'./{self.CATEGORIES[self.main_category][0]}_{self.CATEGORIES[self.main_category][1][self.sub_category]}_{self.date}.csv')
 
+    # 위의 모든 함수를 한번에 실행하는 함수이다.
     def start(self):
         self.find_last_page()
         self.search()
@@ -121,7 +128,7 @@ class DaumNewsCrawler:
         self.save()
         return None
 
-
+# 해당 기간의 날짜 리스트를 반환하는 함수이다.
 def get_date_list(start, end):
     start = pd.to_datetime(start)
     end = pd.to_datetime(end)
@@ -129,7 +136,7 @@ def get_date_list(start, end):
     date_list = date_list.strftime('%Y%m%d')
     return date_list
 
-
+# 현재 폴더의 모든 csv를 합치는 함수이다.
 def combine_all_csv(name):
     csv_list = []
     files = os.listdir(os.getcwd())
@@ -144,7 +151,7 @@ def combine_all_csv(name):
         'title', 'content', 'writer', 'writed_at', 'news_agency'
     ])
     for csv in csv_list:
-        df = pd.read_csv(csv)
+        df = pd.read_csv(csv, index_col=0)
         total_csv = pd.concat([total_csv, df], ignore_index=True)
     
     total_csv.to_csv(f'./{name}.csv')
@@ -152,28 +159,33 @@ def combine_all_csv(name):
     for csv in csv_list:
         os.remove(csv)
 
-
+# 처음 실행되는 메인 함수이다.
 if __name__ == '__main__':
+    # 날짜 리스트를 가져온다.
     date_list = get_date_list('20230201', '20230316')
-
+    # 카테고리 확인을 위한 인스턴스를 생성한다.
     sample = DaumNewsCrawler('economic', 'finance', '20230201')
-
+    # 크롤링을 위해 생성된 인스턴스를 저장할 리스트
     class_list = []
-    total_df = sample.data_df
 
+    # 원하는 크롤러 인스턴스를 생성 후 리스트에 저장
     for date in date_list:
         for category in sample.CATEGORIES['digital'][1].keys():
             class_list.append(DaumNewsCrawler('digital', category, date))
 
+    # 멀티 프로세싱을 위한 작업공간
     pool = concurrent.futures.ProcessPoolExecutor(
         max_workers=multiprocessing.cpu_count()*2)
 
+    # 작업 저장을 위한 리스트
     procs = []
 
+    # 인스턴스를 프로세스에 할당
     for dnc in class_list:
         procs.append(pool.submit(dnc.start))
 
-    for p in concurrent.futures.as_completed(procs):
-        pass
+    # 모든 프로세스가 완료되었는지 확인
+    concurrent.futures.wait(procs)
 
-    combine_all_csv('total.csv')
+    # 만들어진 cvs 파일 통합 후 삭제
+    combine_all_csv('total')
