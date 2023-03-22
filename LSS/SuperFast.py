@@ -1,3 +1,4 @@
+import os
 import sys
 import grequests
 import requests
@@ -7,6 +8,7 @@ import concurrent.futures
 from bs4 import BeautifulSoup
 
 sys.setrecursionlimit(10000)
+
 
 class DaumNewsCrawler:
     CATEGORIES = {
@@ -67,7 +69,6 @@ class DaumNewsCrawler:
         self.params = {}
 
     def find_last_page(self):
-        print('1')
         last_url = self.base_url + "9999"
         response = requests.get(last_url)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -75,7 +76,6 @@ class DaumNewsCrawler:
         self.last_page = int(tmp_page.replace('현재 페이지', '').strip())
 
     def search(self):
-        print('2')
         for date in range(1, self.last_page+1):
             self.page_list.append(self.base_url + str(date))
 
@@ -92,7 +92,6 @@ class DaumNewsCrawler:
                 self.news_list.append(link.attrs['href'])
 
     def crawling(self):
-        print('3')
         reqs = (grequests.get(link) for link in self.news_list)
         resp = grequests.map(reqs)
 
@@ -112,7 +111,6 @@ class DaumNewsCrawler:
             self.index += 1
 
     def save(self):
-        print('4')
         self.data_df.to_csv(
             f'./{self.CATEGORIES[self.main_category][0]}_{self.CATEGORIES[self.main_category][1][self.sub_category]}_{self.date}.csv')
 
@@ -122,7 +120,6 @@ class DaumNewsCrawler:
         self.crawling()
         self.save()
         return None
-        # return self.data_df
 
 
 def get_date_list(start, end):
@@ -133,13 +130,36 @@ def get_date_list(start, end):
     return date_list
 
 
+def combine_all_csv(name):
+    csv_list = []
+    files = os.listdir(os.getcwd())
+
+    for file in files:
+        name, ext = os.path.splitext(file)
+        if ext == '.csv':
+            csv_list.append(file)
+
+    total_csv = pd.DataFrame(columns=[
+        'platform', 'main_category', 'sub_category',
+        'title', 'content', 'writer', 'writed_at', 'news_agency'
+    ])
+    for csv in csv_list:
+        df = pd.read_csv(csv)
+        total_csv = pd.concat([total_csv, df], ignore_index=True)
+    
+    total_csv.to_csv(f'./{name}.csv')
+
+    for csv in csv_list:
+        os.remove(csv)
+
+
 if __name__ == '__main__':
     date_list = get_date_list('20230201', '20230316')
 
     sample = DaumNewsCrawler('economic', 'finance', '20230201')
 
     class_list = []
-    # total_df = sample.data_df
+    total_df = sample.data_df
 
     for date in date_list:
         for category in sample.CATEGORIES['digital'][1].keys():
@@ -155,6 +175,5 @@ if __name__ == '__main__':
 
     for p in concurrent.futures.as_completed(procs):
         pass
-        # pd.concat([total_df, p.result()])
-    
-    # total_df.to_csv('./total.csv')
+
+    combine_all_csv('total.csv')
