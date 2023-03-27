@@ -107,7 +107,7 @@ class DaumNewsCrawler:
             writer = soup.select('.head_view > .info_view > .txt_info')[0].text
             writed_at = soup.select_one(
                 '.head_view > .info_view .num_date').text
-            content = soup.select_one('.news_view > .article_view')
+            content = soup.select_one('.news_view > .article_view').text.strip().replace('\n',' ')
             news_agency = soup.select_one('#kakaoServiceLogo').text
             data += '다음뉴스', self.CATEGORIES[self.main_category][0], \
                 self.CATEGORIES[self.main_category][1][self.sub_category], \
@@ -137,7 +137,7 @@ def get_date_list(start, end):
     return date_list
 
 # 현재 폴더의 모든 csv를 합치는 함수이다.
-def combine_all_csv(name):
+def combine_all_csv():
     csv_list = []
     files = os.listdir(os.getcwd())
 
@@ -153,16 +153,17 @@ def combine_all_csv(name):
     for csv in csv_list:
         df = pd.read_csv(csv, index_col=0)
         total_csv = pd.concat([total_csv, df], ignore_index=True)
-    
-    total_csv.to_csv(f'./{name}.csv')
+
+    total_csv.to_csv('./total.csv')
 
     for csv in csv_list:
         os.remove(csv)
 
+
 # 처음 실행되는 메인 함수이다.
 if __name__ == '__main__':
     # 날짜 리스트를 가져온다.
-    date_list = get_date_list('20230201', '20230316')
+    date_list = get_date_list('20230201', '20230203')
     # 카테고리 확인을 위한 인스턴스를 생성한다.
     sample = DaumNewsCrawler('economic', 'finance', '20230201')
     # 크롤링을 위해 생성된 인스턴스를 저장할 리스트
@@ -170,8 +171,8 @@ if __name__ == '__main__':
 
     # 원하는 크롤러 인스턴스를 생성 후 리스트에 저장
     for date in date_list:
-        for category in sample.CATEGORIES['digital'][1].keys():
-            class_list.append(DaumNewsCrawler('digital', category, date))
+        for category in sample.CATEGORIES['economic'][1].keys():
+            class_list.append(DaumNewsCrawler('economic', category, date))
 
     # 멀티 프로세싱을 위한 작업공간
     pool = concurrent.futures.ProcessPoolExecutor(
@@ -187,5 +188,5 @@ if __name__ == '__main__':
     # 모든 프로세스가 완료되었는지 확인
     concurrent.futures.wait(procs)
 
-    # 만들어진 cvs 파일 통합 후 삭제
-    combine_all_csv('total')
+    # 만들어진 csv 파일 통합 후 삭제
+    combine_all_csv()
