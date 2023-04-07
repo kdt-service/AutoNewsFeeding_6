@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 from konlpy.tag import Mecab
 # 동사/명사등 형태소 분석을 위해 Mecab을 import한다. 
 from gensim import corpora, models
@@ -8,11 +9,24 @@ from nltk.tokenize import sent_tokenize
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer    
 
-df = pd.read_csv('.\clean_IT_news.csv').head(15)
+#df = pd.read_csv('.\\clean_IT_news.csv').head(15)
+
+    # 위코드와 달리 절대경로를 설정하는 방법이 아래 코딩이다.
+    # 현재 파일이 위치한 디렉토리를 기준으로 파일 경로 지정
+file_path = os.path.join(os.path.dirname(__file__), 'clean_IT_news.csv')
+df = pd.read_csv(file_path).head(15)
+    # os.path.dirname(__file__)은 현재 스크립트 파일이 위치한 디렉토리를 반환하고, 
+    # os.path.join() 함수를 사용하여 파일 경로를 생성합니다. 
+    # 이를 사용하면 ' 상대경로 ' 대신 ' 절대경로 '를 사용하여 파일을 불러올 수 있습니다.
+
+
 
 # 한국어 불용어 txt파일로 불용어를 처리
 # 출처 : https://gist.github.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a#file-stopwords-ko-txt
-with open('stop_word.txt', 'r', encoding='utf-8') as f:
+
+filename = '230406_송세영님_stop_word.txt'
+file_path = os.path.join(os.path.dirname(__file__), filename)
+with open(file_path, 'r', encoding='utf-8') as f:
     korean_stop_words = set(line.strip() for line in f)
 
 # mecab 형태소 분석기 사용
@@ -41,7 +55,7 @@ def sentence_similarity(sentence1, sentence2):
 # 본문기사 요약
 num_sentences = 3
 
-def lda_summarize_v2(text, num_topics=3, num_words=10, num_sentences=num_sentences, similarity_threshold=0.4):
+def lda_summarize_v2(text, num_topics=3, num_words=10, num_sentences=num_sentences, similarity_threshold=0.6):
     # 요약문을 생성하는 함수 정의, text는 요약 대상 텍스트, num_topics는 토픽 수, 
     # num_words는 토픽당 키워드 수, num_sentences는 요약문에 포함될 문장 수입니다.
     # similarity_threshold는 문장 유사도
@@ -104,7 +118,7 @@ for index, row in df.iterrows():
     # 매개변수 content는 기사내용, num_topics는 생성할 토픽의 수, num_words는 단어의 개수, nun_sentences는 문장의 수입니다.
     print(f"{index+1}. 기사 제목: {row['title']}")
     # 0번이 아닌 1번부터 시작하기위해 index+1을 해주고 기사제목에 title 정보를 넣음
-    print(f"◆기사요약문◆")
+    print(f"◆ 기사요약문 ◆")
     for i in range(num_sentences):
         print(summary[i])
-    print('-------------')
+    print('-'*148)
